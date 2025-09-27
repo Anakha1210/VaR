@@ -10,7 +10,7 @@ def get_asset_price(symbols):
 
 def get_portfolio(portfolio_id):
     df=pd.read_csv('data/portfolio.csv')
-    return df[df['portfolio_id']==Ticker]
+    return df[df['Ticker']==portfolio_id]
 
 def cal_potfolio_pnl(holdings_df,prices_df):
     pnl= (prices_df* holdingd_df.set_index('symbol')['quantity']).sum(axis=1)
