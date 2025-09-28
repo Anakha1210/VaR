@@ -3,10 +3,22 @@ import numpy as np
 from scipy.stats import norm
 
 def get_asset_price(symbols):
-    # The Date is already the index in asset.csv, so we don't need to set it again
-    df = pd.read_csv("data/asset.csv", index_col='Date', parse_dates=True)
-    # Return only the columns for the requested symbols
-    return df[symbols]
+    df = pd.read_csv("data/asset.csv", index_col="Date", parse_dates=True)
+    df.columns = df.columns.str.strip()
+    # Check which tickers are missing
+    available = [s for s in symbols if s in df.columns]
+    missing   = [s for s in symbols if s not in df.columns]
+    
+    if missing:
+        import streamlit as st
+        st.warning(f"These tickers are missing from data and will be ignored: {', '.join(missing)}")
+    
+    if not available:
+        # If nothing is left, stop to avoid KeyError
+        return pd.DataFrame()
+    
+    return df[available].ffill().bfill()
+
 
 def get_portfolio(portfolio_id=None):
     # portfolio_id parameter is not used in the current implementation
