@@ -26,7 +26,7 @@ simulations = st.sidebar.number_input("Monte Carlo Simulations", value=10000, st
 if st.button("Calculate VaR"):
     
     portfolio_df = get_portfolio(portfolio_id)
-    symbols = portfolio_df['symbol'].tolist()
+    symbols = portfolio_df['Ticker'].tolist()
     prices_df = get_asset_price(symbols)
     
     
