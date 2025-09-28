@@ -3,11 +3,14 @@ import numpy as np
 from scipy.stats import norm
 
 def get_asset_price(symbols):
-    df = pd.read_csv("data/asset.csv", parse_dates=['Date'])
-    df = df.set_index('Date')
+    # The Date is already the index in asset.csv, so we don't need to set it again
+    df = pd.read_csv("data/asset.csv", index_col='Date', parse_dates=True)
+    # Return only the columns for the requested symbols
     return df[symbols]
 
 def get_portfolio(portfolio_id=None):
+    # portfolio_id parameter is not used in the current implementation
+    # as portfolio.csv contains all tickers and weights
     df = pd.read_csv('data/portfolio.csv')
     return df
 
