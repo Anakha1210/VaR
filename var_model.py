@@ -3,7 +3,7 @@ import numpy as np
 from scipy.stats import norm
 
 def get_asset_price(symbols):
-    df=pd.read_csv("data/asset.csv",parse_dates=['data'])
+    df=pd.read_csv("data/asset.csv",parse_dates=['Data'])
     df=df[df['symbol'].isin(symbols)]
     df=df.pivot(index='date',columns='symbol',values='close_price')
     return df.sort_index()
