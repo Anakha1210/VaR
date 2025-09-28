@@ -30,10 +30,15 @@ def cal_potfolio_pnl(holdings_df, prices_df):
     # Calculate daily returns
     returns = prices_df.pct_change().dropna()
     
-    # Calculate weighted returns using portfolio weights
-    weighted_returns = returns.mul(holdings_df['Weight'].values, axis=1)
+    # Only keep weights for tickers actually in prices_df
+    weights = holdings_df.set_index('Ticker')['Weight']
+    weights = weights.reindex(returns.columns)  # align with columns of returns
+    weights = weights.fillna(0)  # missing tickers get 0 weight
     
-    # Sum across all assets to get portfolio returns
+    # Multiply returns by weights
+    weighted_returns = returns.mul(weights.values, axis=1)
+    
+    # Sum to get portfolio returns
     portfolio_returns = weighted_returns.sum(axis=1)
     
     return portfolio_returns
