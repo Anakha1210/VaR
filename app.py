@@ -51,11 +51,14 @@ if run_btn:
         })
         st.table(var_results_df)
 
+        
         # Charts
         st.subheader("Historical VaR Chart")
-        st.line_chart(results["historical_var"])
+        st.bar_chart(results["historical_var"])
+
         st.subheader("Parametric VaR Chart")
-        st.line_chart(results["parametric_var"])
+        st.bar_chart(results["parametric_var"])
+
 
         # Save to history
         new_record = {
