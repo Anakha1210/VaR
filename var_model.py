@@ -2,11 +2,21 @@ import pandas as pd
 import numpy as np
 
 def load_data(file_path, ticker, start_date, end_date):
-    """Load and filter data for given ticker and date range"""
+    """
+    Load and filter CSV data for a given ticker and date range.
+    Filters the Kaggle NIFTY50 dataset for 2007-2020 if desired.
+    """
     df = pd.read_csv(file_path, parse_dates=["Date"])
+    
+    # Keep only the requested date range
+    df = df[(df["Date"] >= pd.to_datetime("2007-01-01")) & (df["Date"] <= pd.to_datetime("2020-12-31"))]
+
+    # Filter for the selected ticker(s)
     df = df[df["Symbol"].isin(ticker.split())]
-    df = df[(df["Date"] >= pd.to_datetime(start_date)) & (df["Date"] <= pd.to_datetime(end_date))]
-    df = df.sort_values("Date")
+
+    # Sort by date
+    df = df.sort_values("Date").reset_index(drop=True)
+    
     return df
 
 def calculate_var(df, confidence_level, window, portfolio_value):
