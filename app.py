@@ -1,84 +1,96 @@
 import streamlit as st
 import pandas as pd
-from var_model import calculate_var, load_data
-import os
-
-HISTORY_FILE = "history.csv"
+from var_model import load_data, calculate_var
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="VaR Calculator", layout="wide")
-st.title("📊 Value at Risk (VaR) Calculator")
 
-# --- Sidebar Inputs ---
-st.sidebar.header("Input Parameters")
+# ---------------- Sidebar Inputs ----------------
+st.sidebar.header("User Inputs")
 
-tickers = st.sidebar.text_input("Enter Tickers (space-separated)", "MUNDRAPORT")
+tickers = st.sidebar.text_input("Enter space-separated tickers", "MUNDRAPORT")
+start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2007-01-01"))
+end_date = st.sidebar.date_input("End Date", pd.to_datetime("2020-12-31"))
+window = st.sidebar.slider("Rolling Window (days)", 1, 252, 20)
+confidence_level = st.sidebar.selectbox("Confidence Level (%)", [90, 95, 99], index=1)
+portfolio_value = st.sidebar.number_input("Portfolio Value (INR)", min_value=10000, value=1000000, step=10000)
 
-start_year = st.sidebar.selectbox("Start Year", list(range(2000, 2021)), index=7)  # default 2007
-end_year = st.sidebar.selectbox("End Year", list(range(2000, 2021)), index=20)     # default 2020
+# ---------------- Load Data ----------------
+df = load_data("data/NIFTY50/NIFTY50_all.csv", tickers, start_date, end_date)
 
-rolling_window = st.sidebar.number_input("Rolling Window (days)", min_value=1, value=30)
-confidence_level = st.sidebar.slider("Confidence Level (%)", 90, 99, 95)
-portfolio_value = st.sidebar.number_input("Portfolio Value", min_value=1000, value=100000)
+if df.empty:
+    st.error("No data found for the given inputs.")
+    st.stop()
 
-run_btn = st.sidebar.button("Calculate VaR")
+# ---------------- Input Summary ----------------
+st.subheader("Input Summary")
+summary_df = pd.DataFrame({
+    "Tickers": [tickers],
+    "Start Date": [start_date],
+    "End Date": [end_date],
+    "Rolling Window": [window],
+    "Confidence Level": [confidence_level],
+    "Portfolio Value (INR)": [portfolio_value]
+})
+st.table(summary_df)
 
-# Convert years to datetime
-start_date = pd.to_datetime(f"{start_year}-01-01")
-end_date = pd.to_datetime(f"{end_year}-12-31")
+# ---------------- Run Calculation ----------------
+if st.button("Run Calculation"):
+    results = calculate_var(df, confidence_level, window, portfolio_value)
 
-# --- Run Calculation ---
-if run_btn:
-    df = load_data("data/NIFTY50/NIFTY50_all.csv", tickers, start_date, end_date)
-    
-    if df.empty:
-        st.error("No data available for the selected ticker(s) and year range.")
-    else:
-        results = calculate_var(df, confidence_level, rolling_window, portfolio_value)
+    st.subheader("VaR Results (Last Value)")
+    st.write(results["summary"])
 
-        # Input Summary Table
-        st.subheader("Input Summary")
-        summary_df = pd.DataFrame({
-            "Parameter": ["Tickers", "Start Year", "End Year", "Rolling Window", "Confidence Level", "Portfolio Value"],
-            "Value": [tickers, start_year, end_year, rolling_window, confidence_level, portfolio_value]
-        })
-        st.table(summary_df)
-
-        # VaR Results
-        st.subheader("VaR Results")
-        var_results_df = pd.DataFrame({
-            "Method": ["Historical VaR", "Parametric VaR"],
-            "Value": [results["summary"]["Historical VaR (last)"], results["summary"]["Parametric VaR (last)"]]
-        })
-        st.table(var_results_df)
-
-        
-        # Charts
-        st.subheader("Historical VaR Chart")
+    # ---------------- Time Series Charts ----------------
+    st.subheader("VaR Time Series Charts")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Historical VaR")
         st.bar_chart(results["historical_var"])
-
-        st.subheader("Parametric VaR Chart")
+    with col2:
+        st.subheader("Parametric VaR")
         st.bar_chart(results["parametric_var"])
 
+    # ---------------- Histograms with VaR Line ----------------
+    def plot_var_histogram(returns, var_value, confidence_level, method_name, portfolio_value):
+        scaled_returns = returns * portfolio_value
+        scaled_returns = scaled_returns.dropna()
 
-        # Save to history
-        new_record = {
-            "Tickers": tickers,
-            "Start": start_date,
-            "End": end_date,
-            "Confidence": confidence_level,
-            "Window": rolling_window,
-            "Portfolio": portfolio_value,
-            "Parametric VaR": results["summary"]["Parametric VaR (last)"],
-            "Historical VaR": results["summary"]["Historical VaR (last)"]
-        }
-        history_df = pd.DataFrame([new_record])
-        if os.path.exists(HISTORY_FILE):
-            old = pd.read_csv(HISTORY_FILE)
-            history_df = pd.concat([old, history_df]).tail(10)
-        history_df.to_csv(HISTORY_FILE, index=False)
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.hist(scaled_returns, bins=50, color="skyblue", edgecolor="black", alpha=0.7)
 
-# --- History Section ---
-if os.path.exists(HISTORY_FILE):
-    st.subheader("📜 Last 10 Calculations")
-    hist = pd.read_csv(HISTORY_FILE)
-    st.table(hist.tail(10))
+        ax.axvline(-var_value, color="red", linestyle="--", linewidth=2,
+                   label=f"VaR {confidence_level}%: -₹{var_value:,.2f}")
+
+        ax.set_title(f"{method_name} VaR Histogram ({confidence_level}% confidence)")
+        ax.set_xlabel("Portfolio Returns (INR)")
+        ax.set_ylabel("Frequency")
+        ax.legend()
+
+        ax.text(-var_value, ax.get_ylim()[1]*0.8, f"-₹{var_value:,.2f}", color="red")
+
+        st.pyplot(fig)
+
+    st.subheader("VaR Histograms")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if results["summary"]["Historical VaR (last)"] is not None:
+            plot_var_histogram(
+                df["Returns"].rolling(window).mean(),
+                results["summary"]["Historical VaR (last)"],
+                confidence_level,
+                "Historical",
+                portfolio_value
+            )
+
+    with col2:
+        if results["summary"]["Parametric VaR (last)"] is not None:
+            plot_var_histogram(
+                df["Returns"],
+                results["summary"]["Parametric VaR (last)"],
+                confidence_level,
+                "Parametric",
+                portfolio_value
+            )
