@@ -3,18 +3,19 @@ import pandas as pd
 from var_model import calculate_var, load_data
 import os
 
-# File to store history
 HISTORY_FILE = "history.csv"
 
 st.set_page_config(page_title="VaR Calculator", layout="wide")
-
 st.title("📊 Value at Risk (VaR) Calculator")
 
 # --- Input Section ---
 with st.form("var_form"):
     tickers = st.text_input("Enter Tickers (space-separated)", "MUNDRAPORT")
-    start_date = st.date_input("Start Date")
-    end_date = st.date_input("End Date")
+    
+    # Year selection instead of free date
+    start_year = st.selectbox("Start Year", list(range(2000, 2021)), index=7)  # default 2007
+    end_year = st.selectbox("End Year", list(range(2000, 2021)), index=20)     # default 2020
+
     rolling_window = st.number_input("Rolling Window (days)", min_value=1, value=30)
     confidence_level = st.slider("Confidence Level (%)", 90, 99, 95)
     portfolio_value = st.number_input("Portfolio Value", min_value=1000, value=100000)
@@ -22,33 +23,35 @@ with st.form("var_form"):
     submitted = st.form_submit_button("Calculate VaR")
 
 if submitted:
-    # Load data from data folder
-    df = load_data("data/NIFTY50/NIFTY50_all.csv", tickers, start_date, end_date)
+    # Convert years to datetime
+    start_date = pd.to_datetime(f"{start_year}-01-01")
+    end_date = pd.to_datetime(f"{end_year}-12-31")
+
+    df = load_data("data/data.csv", tickers, start_date, end_date)
     
     if df.empty:
-        st.error("No data available for given filters.")
+        st.error("No data available for the selected ticker(s) and year range.")
     else:
-        # Calculate VaR
         results = calculate_var(df, confidence_level, rolling_window, portfolio_value)
 
-        # Show Summary
+        # Display input summary
         st.subheader("Input Summary")
         st.write({
             "Tickers": tickers,
-            "Start Date": start_date,
-            "End Date": end_date,
+            "Start Year": start_year,
+            "End Year": end_year,
             "Rolling Window": rolling_window,
             "Confidence Level": confidence_level,
             "Portfolio Value": portfolio_value
         })
 
+        # Display VaR results
         st.subheader("VaR Results")
         st.write(results["summary"])
 
-        # Plot Charts
+        # Charts
         st.subheader("Historical VaR Chart")
         st.line_chart(results["historical_var"])
-
         st.subheader("Parametric VaR Chart")
         st.line_chart(results["parametric_var"])
 
@@ -64,13 +67,12 @@ if submitted:
             "Historical VaR": results["summary"]["Historical VaR (last)"]
         }
         history_df = pd.DataFrame([new_record])
-
         if os.path.exists(HISTORY_FILE):
             old = pd.read_csv(HISTORY_FILE)
             history_df = pd.concat([old, history_df]).tail(10)
         history_df.to_csv(HISTORY_FILE, index=False)
 
-# --- History Section ---
+# History display
 if os.path.exists(HISTORY_FILE):
     st.subheader("📜 Last 10 Calculations")
     hist = pd.read_csv(HISTORY_FILE)
