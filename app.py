@@ -27,7 +27,7 @@ if submitted:
     start_date = pd.to_datetime(f"{start_year}-01-01")
     end_date = pd.to_datetime(f"{end_year}-12-31")
 
-    df = load_data("data/data.csv", tickers, start_date, end_date)
+    df = load_data("data/NIFTY50/NIFTY50_all.csv", tickers, start_date, end_date)
     
     if df.empty:
         st.error("No data available for the selected ticker(s) and year range.")
